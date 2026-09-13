@@ -35,7 +35,7 @@ uv run python -m app.workers.worker
 ## 测试
 
 ```bash
-cd backend && uv run pytest        # 后端 31 个测试（迁移/队列/适配器/安全）
+cd backend && uv run pytest        # 后端 47 个测试（迁移/队列/适配器/安全/品类/导入/抽帧）
 cd frontend && pnpm test           # 前端 Vitest
 scripts/p0_media_check.sh          # P0-06 媒体工具链验证（生成 30 秒竖屏样片）
 ```

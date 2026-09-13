@@ -109,13 +109,13 @@ def test_conflicting_metadata_on_duplicate(client, session_factory, categories, 
         {"import_item_id": "c1", "source_path": str(clip), "sku": "AB-001",
          "category_id": categories["bra"]},
     ])
-    Worker(session_factory, "w1", lease_seconds=60).run(max_jobs=1, exit_when_empty=True)
+    Worker(session_factory, "w1", lease_seconds=60).run(exit_when_empty=True, idle_timeout=5)
 
     _import(client, tmp_path, [
         {"import_item_id": "c2", "source_path": str(clip), "sku": "AB-002",
          "category_id": categories["general"]},
     ])
-    Worker(session_factory, "w2", lease_seconds=60).run(max_jobs=1, exit_when_empty=True)
+    Worker(session_factory, "w2", lease_seconds=60).run(exit_when_empty=True, idle_timeout=5)
 
     session = session_factory()
     assets = session.execute(select(Asset)).scalars().all()
@@ -158,7 +158,7 @@ def test_broken_files_do_not_block_batch(client, session_factory, categories, tm
          "category_id": categories["bra"]},
     ])
     assert resp.status_code == 200
-    Worker(session_factory, "w1", lease_seconds=60).run(max_jobs=1, exit_when_empty=True)
+    Worker(session_factory, "w1", lease_seconds=60).run(exit_when_empty=True, idle_timeout=5)
 
     session = session_factory()
     items = session.execute(select(ImportItem)).scalars().all()
@@ -178,7 +178,7 @@ def test_over_duration_flagged_not_truncated(client, session_factory, categories
         {"import_item_id": "L1", "source_path": str(long_clip), "sku": "LONG-1",
          "category_id": categories["general"]},
     ])
-    Worker(session_factory, "w1", lease_seconds=60).run(max_jobs=1, exit_when_empty=True)
+    Worker(session_factory, "w1", lease_seconds=60).run(exit_when_empty=True, idle_timeout=5)
 
     session = session_factory()
     asset = session.execute(select(Asset)).scalar_one()
@@ -194,7 +194,7 @@ def test_import_item_status_endpoint(client, session_factory, categories, tmp_pa
          "category_id": categories["bra"]},
     ])
     job_id = resp.json()["job_id"]
-    Worker(session_factory, "w1", lease_seconds=60).run(max_jobs=1, exit_when_empty=True)
+    Worker(session_factory, "w1", lease_seconds=60).run(exit_when_empty=True, idle_timeout=5)
     resp = client.get(f"/api/assets/import/{job_id}/items")
     items = resp.json()["items"]
     assert len(items) == 1

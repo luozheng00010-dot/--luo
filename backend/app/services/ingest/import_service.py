@@ -146,6 +146,13 @@ def run_import_job(session: Session, job: Job, config=None) -> dict:
         item.asset_id = asset.id
         item.error_code = None
         counts["imported"] += 1
+        # 抽帧/缩略图/有效时段为独立后台任务（P2-03）
+        from app.workers import queue as job_queue
+
+        job_queue.enqueue(
+            session, "prepare_media", {"asset_id": asset.id},
+            idempotency_key=f"prepare_media:{asset.id}",
+        )
         if probe.duration_ms > MAX_DURATION_MS:
             logger.info(
                 "import_over_duration",
