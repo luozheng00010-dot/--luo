@@ -16,9 +16,8 @@ from fastapi.responses import JSONResponse
 
 from app import __version__
 from app.config import AppConfig, get_config
-from app.db import make_engine, make_session_factory
+from app.db import make_engine, make_session_factory, run_migrations
 from app.errors import AppError
-from app.services import settings_service
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +45,7 @@ class LocalSecurityMiddleware:
         self.app = app
         self.config = config
 
-    async def __call__(self, scope, receive, send) -> None:  # noqa: ANN001
+    async def __call__(self, scope, receive, send) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
@@ -76,7 +75,7 @@ def _expected_token(config: AppConfig) -> str:
     return ensure_session_token(config)
 
 
-async def _reject(send, code: str, message: str) -> None:  # noqa: ANN001
+async def _reject(send, code: str, message: str) -> None:
     import json
 
     body = json.dumps({"error": code, "detail": message}).encode("utf-8")
@@ -93,32 +92,18 @@ async def _reject(send, code: str, message: str) -> None:  # noqa: ANN001
     await send({"type": "http.response.body", "body": body})
 
 
-def run_migrations(config: AppConfig) -> None:
-    """启动时执行 alembic upgrade head（空库可升级，计划 P1-02）。"""
-    import os
-    from pathlib import Path
-
-    from alembic import command
-    from alembic.config import Config as AlembicConfig
-
-    backend_dir = Path(__file__).resolve().parent.parent.parent
-    alembic_cfg = AlembicConfig(str(backend_dir / "alembic.ini"))
-    alembic_cfg.set_main_option("script_location", str(backend_dir / "migrations"))
-    old = os.environ.get("AUTOEDITOR_DATABASE_URL")
-    os.environ["AUTOEDITOR_DATABASE_URL"] = config.database_url
-    try:
-        command.upgrade(alembic_cfg, "head")
-    finally:
-        if old is None:
-            os.environ.pop("AUTOEDITOR_DATABASE_URL", None)
-        else:
-            os.environ["AUTOEDITOR_DATABASE_URL"] = old
-
-
 def create_app(config: AppConfig | None = None) -> FastAPI:
     config = config or get_config()
     config.ensure_dirs()
     run_migrations(config)
+    # 首次启动幂等初始化预置品类（计划 4.6.3：通用/文胸/内裤）
+    from app.services.categories import init_builtin_categories
+
+    session = make_session_factory(make_engine(config))()
+    try:
+        init_builtin_categories(session)
+    finally:
+        session.close()
     app = FastAPI(title="自动剪辑软件", version=__version__, docs_url=None, redoc_url=None)
     engine = make_engine(config)
     session_factory = make_session_factory(engine)

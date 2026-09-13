@@ -5,7 +5,7 @@ import App, { apiFetch } from './App'
 // P1-01：首页渲染与健康检查展示
 describe('App', () => {
   it('渲染标题与健康检查卡片', async () => {
-    global.fetch = new Proxy(global.fetch, {
+    globalThis.fetch = new Proxy(globalThis.fetch, {
       apply(_target, _this, args) {
         const url = String(args[0])
         if (url.includes('/healthz')) {
@@ -29,7 +29,7 @@ describe('apiFetch', () => {
   it('附会会话令牌并在错误时抛出 detail', async () => {
     localStorage.setItem('autoeditor.session_token', 'tok-1')
     const calls: RequestInit[] = []
-    global.fetch = ((url: string, init?: RequestInit) => {
+    globalThis.fetch = ((url: string, init?: RequestInit) => {
       calls.push(init ?? {})
       if (url.includes('/boom')) {
         return Promise.resolve(

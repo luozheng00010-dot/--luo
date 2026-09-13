@@ -39,3 +39,25 @@ def make_session_factory(engine: Engine) -> sessionmaker:
 
 def make_session(config: AppConfig) -> Session:
     return make_session_factory(make_engine(config))()
+
+
+def run_migrations(config: AppConfig) -> None:
+    """执行 alembic upgrade head（空库可升级，幂等；计划 P1-02）。"""
+    import os
+    from pathlib import Path
+
+    from alembic import command
+    from alembic.config import Config as AlembicConfig
+
+    backend_dir = Path(__file__).resolve().parent.parent
+    alembic_cfg = AlembicConfig(str(backend_dir / "alembic.ini"))
+    alembic_cfg.set_main_option("script_location", str(backend_dir / "migrations"))
+    old = os.environ.get("AUTOEDITOR_DATABASE_URL")
+    os.environ["AUTOEDITOR_DATABASE_URL"] = config.database_url
+    try:
+        command.upgrade(alembic_cfg, "head")
+    finally:
+        if old is None:
+            os.environ.pop("AUTOEDITOR_DATABASE_URL", None)
+        else:
+            os.environ["AUTOEDITOR_DATABASE_URL"] = old

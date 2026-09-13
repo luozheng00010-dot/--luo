@@ -7,8 +7,6 @@ import time
 from collections import Counter
 from datetime import timedelta
 
-import pytest
-
 from app.models import Job, utcnow
 from app.workers import queue as q
 from app.workers.worker import Worker

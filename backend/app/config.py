@@ -73,5 +73,5 @@ def default_data_dir_for_tests(tmp: Path) -> AppConfig:
     return AppConfig(data_dir=tmp, _env_file=None)  # type: ignore[call-arg]
 
 
-if sys.platform == "darwin":  # noqa: F401  首发系统为 macOS（计划 1.2）
+if sys.platform == "darwin":
     pass

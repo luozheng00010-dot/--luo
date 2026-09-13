@@ -7,7 +7,7 @@ import sqlite3
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from app.models import Asset, Category, UsageEvent, new_uuid
+from app.models import Asset, Category, UsageEvent
 
 
 def test_empty_db_upgrade_and_tables(session_factory):

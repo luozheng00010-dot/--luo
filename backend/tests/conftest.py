@@ -9,8 +9,8 @@ import pytest
 
 os.environ.setdefault("AUTOEDITOR_ENABLE_FALLBACK_SECRETS", "1")
 
-from app.config import AppConfig  # noqa: E402
-from app.services import secrets as secrets_mod  # noqa: E402
+from app.config import AppConfig
+from app.services import secrets as secrets_mod
 
 
 @pytest.fixture(autouse=True)
@@ -26,6 +26,10 @@ def _fallback_secrets(monkeypatch):
 def config(tmp_path: pathlib.Path) -> AppConfig:
     cfg = AppConfig(data_dir=tmp_path)
     cfg.ensure_dirs()
+    # 让 get_config() 在测试与任务处理器中返回同一份测试配置
+    from app import config as config_mod
+
+    config_mod.set_config(cfg)
     return cfg
 
 

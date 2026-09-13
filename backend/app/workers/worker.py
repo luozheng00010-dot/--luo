@@ -5,30 +5,15 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from collections.abc import Callable
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.models import Job
+from app.models import Job, utcnow
 from app.workers import queue as q
+from app.workers.registry import get_handler, register_handler  # noqa: F401  再导出保持兼容
 
 logger = logging.getLogger(__name__)
 
-Handler = Callable[[Session, dict, "Worker", str], dict | None]
-"""处理器签名：(session, payload, worker, job_id) -> result_json。
-
-处理器可通过 worker.check_cancel(job_id, session) 感知取消请求。
-"""
-
-_JOB_TYPES: dict[str, Handler] = {}
-
-
-def register_handler(job_type: str, handler: Handler) -> None:
-    _JOB_TYPES[job_type] = handler
-
-
-def get_handler(job_type: str) -> Handler | None:
-    return _JOB_TYPES.get(job_type)
 
 
 class Worker:
@@ -47,6 +32,10 @@ class Worker:
         self.heartbeat_seconds = heartbeat_seconds
         self.poll_interval = poll_interval
         self._stop = threading.Event()
+        # 确保任何 Worker 实例都带全部任务处理器（幂等注册）
+        from app.workers import handlers as job_handlers
+
+        job_handlers.register_all()
 
     # ---- 供处理器使用的辅助 ----
 
@@ -97,12 +86,12 @@ class Worker:
             else:
                 q.succeed(session, job_id, self.worker_id, result)
                 logger.info("job_succeeded", extra={"job_id": job_id})
-        except Exception as exc:  # noqa: BLE001  Worker 必须吞掉异常保持存活
+        except Exception as exc:
             try:
                 session.rollback()
                 code = getattr(exc, "code", "handler_crash")
                 q.fail(session, job_id, self.worker_id, code, str(exc))
-            except Exception:  # noqa: BLE001
+            except Exception:
                 logger.exception("fail_handler_error", extra={"job_id": job_id})
             logger.exception("job_handler_error", extra={"job_id": job_id, "type": job_type})
         finally:
@@ -176,6 +165,12 @@ def main() -> None:
     setup_logging()
     config = get_config()
     config.ensure_dirs()
+    from app.db import run_migrations
+
+    run_migrations(config)
+    from app.workers import handlers as job_handlers
+
+    job_handlers.register_all()
     factory = make_session_factory(make_engine(config))
     worker = Worker(factory, f"worker-{uuid.uuid4().hex[:8]}", lease_seconds=config.lease_seconds)
     recovery = RecoveryService(factory)
